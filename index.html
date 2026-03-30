@@ -43,7 +43,7 @@
 <body>
 <div id="root"></div>
 <script type="text/babel">
-const { useState, useEffect, useRef, useCallback } = React;
+const { useState, useEffect, useRef } = React;
 
 const EDIT_PASSWORD = "enhans2026";
 
@@ -462,8 +462,11 @@ function App() {
   }, []);
 
   // 데이터 변경 시 Firebase에 저장 (편집 모드일 때만)
-  const saveToFirebase = useCallback((newData) => {
-    if (!window.__firebaseDb || !isEditMode) return;
+  const isEditModeRef = useRef(false);
+  useEffect(() => { isEditModeRef.current = isEditMode; }, [isEditMode]);
+
+  const saveToFirebase = (newData) => {
+    if (!window.__firebaseDb || !isEditModeRef.current) return;
     if (isRemoteUpdate.current) { isRemoteUpdate.current = false; return; }
     setSyncStatus("saving");
     clearTimeout(saveTimer.current);
@@ -475,7 +478,7 @@ function App() {
         .then(() => setSyncStatus("synced"))
         .catch(() => setSyncStatus("error"));
     }, 800);
-  }, [isEditMode]);
+  };
 
   const updateData = (updater) => {
     setData(prev => {
