@@ -495,7 +495,12 @@ function App() {
   };
   const addSection = () => {
     const id="sec_"+Date.now();
-    updateData(d=>({...d,sections:[...d.sections,{id,label:"새 섹션",icon:"◉",color:"#888780",bg:"#F1EFE8",cards:[]}]}));
+    const newSection = {id,label:"새 섹션",icon:"◉",color:"#888780",bg:"#F1EFE8",cards:[]};
+    setData(d => {
+      const next = {...d, sections:[...d.sections, newSection]};
+      saveToFirebase(next);
+      return next;
+    });
     setActive(id);
   };
   const deleteSection = sid => { updateData(d=>({...d,sections:d.sections.filter(s=>s.id!==sid)})); setActive(data.sections[0]?.id); };
