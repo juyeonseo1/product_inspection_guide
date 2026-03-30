@@ -573,7 +573,7 @@ function App() {
             {s.icon} {s.label}
           </button>
         ))}
-        {isEditMode&&<button onClick={addSection} style={{padding:"6px 13px",borderRadius:20,fontSize:13,cursor:"pointer",background:"none",color:"#6C63FF",border:"0.5px dashed #6C63FF"}}>+ 섹션 추가</button>}
+        {isEditMode&&<button type="button" onClick={addSection} style={{padding:"6px 13px",borderRadius:20,fontSize:13,cursor:"pointer",background:"none",color:"#6C63FF",border:"0.5px dashed #6C63FF"}}>+ 섹션 추가</button>}
       </div>
 
       {cs&&(
