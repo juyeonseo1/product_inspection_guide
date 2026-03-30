@@ -43,7 +43,7 @@
 <body>
 <div id="root"></div>
 <script type="text/babel">
-const { useState, useEffect, useRef } = React;
+const { useState, useEffect, useRef, useCallback } = React;
 
 const EDIT_PASSWORD = "enhans2026";
 
@@ -448,7 +448,8 @@ function App() {
         const val = snapshot.val();
         if (val) {
           isRemoteUpdate.current = true;
-          setData(val);
+          const fixed = {...val, sections: (val.sections||[]).map(s=>({...s, cards: s.cards||[]}))};
+          setData(fixed);
           setSyncStatus("synced");
         } else {
           setSyncStatus("synced");
@@ -462,11 +463,8 @@ function App() {
   }, []);
 
   // 데이터 변경 시 Firebase에 저장 (편집 모드일 때만)
-  const isEditModeRef = useRef(false);
-  useEffect(() => { isEditModeRef.current = isEditMode; }, [isEditMode]);
-
-  const saveToFirebase = (newData) => {
-    if (!window.__firebaseDb || !isEditModeRef.current) return;
+  const saveToFirebase = useCallback((newData) => {
+    if (!window.__firebaseDb || !isEditMode) return;
     if (isRemoteUpdate.current) { isRemoteUpdate.current = false; return; }
     setSyncStatus("saving");
     clearTimeout(saveTimer.current);
@@ -478,7 +476,7 @@ function App() {
         .then(() => setSyncStatus("synced"))
         .catch(() => setSyncStatus("error"));
     }, 800);
-  };
+  }, [isEditMode]);
 
   const updateData = (updater) => {
     setData(prev => {
@@ -498,12 +496,7 @@ function App() {
   };
   const addSection = () => {
     const id="sec_"+Date.now();
-    const newSection = {id,label:"새 섹션",icon:"◉",color:"#888780",bg:"#F1EFE8",cards:[]};
-    setData(d => {
-      const next = {...d, sections:[...d.sections, newSection]};
-      saveToFirebase(next);
-      return next;
-    });
+    updateData(d=>({...d,sections:[...d.sections,{id,label:"새 섹션",icon:"◉",color:"#888780",bg:"#F1EFE8",cards:[]}]}));
     setActive(id);
   };
   const deleteSection = sid => { updateData(d=>({...d,sections:d.sections.filter(s=>s.id!==sid)})); setActive(data.sections[0]?.id); };
@@ -581,7 +574,7 @@ function App() {
             {s.icon} {s.label}
           </button>
         ))}
-        {isEditMode&&<button type="button" onClick={addSection} style={{padding:"6px 13px",borderRadius:20,fontSize:13,cursor:"pointer",background:"none",color:"#6C63FF",border:"0.5px dashed #6C63FF"}}>+ 섹션 추가</button>}
+        {isEditMode&&<button onClick={addSection} style={{padding:"6px 13px",borderRadius:20,fontSize:13,cursor:"pointer",background:"none",color:"#6C63FF",border:"0.5px dashed #6C63FF"}}>+ 섹션 추가</button>}
       </div>
 
       {cs&&(
