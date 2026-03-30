@@ -7,6 +7,30 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+  import { getDatabase, ref, set, onValue } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyCOMX3qDr7H8XGvW2fGmafxpLYPEO7LFCA",
+    authDomain: "product-inspection-guide.firebaseapp.com",
+    databaseURL: "https://product-inspection-guide-default-rtdb.firebaseio.com",
+    projectId: "product-inspection-guide",
+    storageBucket: "product-inspection-guide.firebasestorage.app",
+    messagingSenderId: "311452982745",
+    appId: "1:311452982745:web:306e6b73aa0f8bff0acdc8"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const db = getDatabase(app);
+
+  window.__firebaseDb = db;
+  window.__firebaseRef = ref;
+  window.__firebaseSet = set;
+  window.__firebaseOnValue = onValue;
+  window.__firebaseReady = true;
+  window.dispatchEvent(new Event("firebase-ready"));
+</script>
 <style>
   *, *::before, *::after { box-sizing: border-box; }
   body { margin: 0; padding: 16px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f9f9f9; color: #2C2C2A; }
@@ -19,9 +43,8 @@
 <body>
 <div id="root"></div>
 <script type="text/babel">
-const { useState, useEffect, useRef } = React;
+const { useState, useEffect, useRef, useCallback } = React;
 
-const STORAGE_KEY = "kc_guide_v3";
 const EDIT_PASSWORD = "enhans2026";
 
 const STATUS = {
@@ -163,28 +186,27 @@ const defaultData = {
   ]
 };
 
-const renderLines = (text, style = {}) =>
+const renderLines = (text) =>
   text.split("\n").map((line, i, arr) => (
-    React.createElement(React.Fragment, {key: i}, line, i < arr.length - 1 && React.createElement('br'))
+    React.createElement(React.Fragment, {key:i}, line, i < arr.length-1 && React.createElement('br'))
   ));
 
 function Editable({ value, onChange, style }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(value);
   const ref = useRef();
-  useEffect(() => { if (editing && ref.current) { ref.current.focus(); const l = ref.current.value.length; ref.current.setSelectionRange(l, l); } }, [editing]);
+  useEffect(() => { if (editing && ref.current) { ref.current.focus(); const l=ref.current.value.length; ref.current.setSelectionRange(l,l); } }, [editing]);
   const commit = () => { setEditing(false); if (draft !== value) onChange(draft); };
   if (!editing) return (
-    <span onClick={() => { setDraft(value); setEditing(true); }}
-      title="클릭하여 수정"
-      style={{ cursor: "text", borderBottom: "1px dashed rgba(108,99,255,0.35)", paddingBottom: 1, whiteSpace: "pre-wrap", ...style }}>
-      {value ? renderLines(value) : React.createElement('span', {style:{opacity:0.35,fontStyle:"italic"}}, "내용 입력")}
+    <span onClick={() => { setDraft(value); setEditing(true); }} title="클릭하여 수정"
+      style={{ cursor:"text", borderBottom:"1px dashed rgba(108,99,255,0.35)", paddingBottom:1, whiteSpace:"pre-wrap", ...style }}>
+      {value ? renderLines(value) : React.createElement('span',{style:{opacity:0.35,fontStyle:"italic"}},"내용 입력")}
     </span>
   );
   return React.createElement('textarea', {
     ref, value: draft,
     onChange: e => setDraft(e.target.value),
-    onKeyDown: e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); commit(); } },
+    onKeyDown: e => { if (e.key==="Enter"&&!e.shiftKey){e.preventDefault();commit();} },
     onBlur: commit,
     placeholder: "Enter로 저장, Shift+Enter로 줄바꿈",
     style: { fontSize:"inherit", fontFamily:"inherit", fontWeight:"inherit", color:"inherit",
@@ -212,135 +234,106 @@ function useDragList(items, onChange) {
   const onDragStart = i => setDragIdx(i);
   const onDragOver  = i => setOverIdx(i);
   const onDrop = i => {
-    if (dragIdx === null || dragIdx === i) { setDragIdx(null); setOverIdx(null); return; }
-    const arr = [...items];
-    const [moved] = arr.splice(dragIdx, 1);
-    arr.splice(i, 0, moved);
-    onChange(arr);
-    setDragIdx(null); setOverIdx(null);
+    if (dragIdx===null||dragIdx===i){setDragIdx(null);setOverIdx(null);return;}
+    const arr=[...items]; const [moved]=arr.splice(dragIdx,1); arr.splice(i,0,moved);
+    onChange(arr); setDragIdx(null); setOverIdx(null);
   };
   const onDragEnd = () => { setDragIdx(null); setOverIdx(null); };
   return { dragIdx, overIdx, onDragStart, onDragOver, onDrop, onDragEnd };
 }
 
 const DropLine = ({ visible, color="#6C63FF" }) => (
-  <div style={{ height:2, borderRadius:2, background: visible ? color : "transparent", margin:"1px 0", transition:"background 0.1s" }} />
+  <div style={{ height:2, borderRadius:2, background:visible?color:"transparent", margin:"1px 0", transition:"background 0.1s" }} />
 );
 
 function RulesCard({ rules, isEditMode, onChange }) {
   const { dragIdx, overIdx, onDragStart, onDragOver, onDrop, onDragEnd } = useDragList(rules, onChange);
   return (
     <div onDragEnd={onDragEnd}>
-      {rules.map((r, i) => {
-        const s = STATUS[r.status] || STATUS.info;
+      {rules.map((r,i) => {
+        const s=STATUS[r.status]||STATUS.info;
         return (
           <div key={i}>
-            <DropLine visible={isEditMode && overIdx === i && dragIdx !== i} />
-            <div draggable={isEditMode}
-              onDragStart={() => onDragStart(i)} onDragOver={e => { e.preventDefault(); onDragOver(i); }} onDrop={() => onDrop(i)}
-              style={{ display:"flex", alignItems:"center", gap:10, padding:"9px 0",
-                borderBottom:"0.5px solid rgba(0,0,0,0.06)", cursor: isEditMode ? "grab" : "default" }}>
-              {isEditMode && <span style={{ fontSize:14, color:"#ccc", flexShrink:0, userSelect:"none" }}>⠿</span>}
-              {isEditMode ? (
-                <select value={r.status} onChange={e => { const nr=[...rules]; nr[i]={...nr[i],status:e.target.value}; onChange(nr); }}
-                  style={{ fontSize:11, border:"0.5px solid #ccc", borderRadius:12, padding:"2px 6px",
-                    background:s.bg, color:s.color, flexShrink:0, cursor:"pointer" }}>
-                  {Object.entries(STATUS).map(([k,v]) => React.createElement('option',{key:k,value:k},v.label))}
+            <DropLine visible={isEditMode&&overIdx===i&&dragIdx!==i} />
+            <div draggable={isEditMode} onDragStart={()=>onDragStart(i)} onDragOver={e=>{e.preventDefault();onDragOver(i);}} onDrop={()=>onDrop(i)}
+              style={{ display:"flex", alignItems:"center", gap:10, padding:"9px 0", borderBottom:"0.5px solid rgba(0,0,0,0.06)", cursor:isEditMode?"grab":"default" }}>
+              {isEditMode&&<span style={{fontSize:14,color:"#ccc",flexShrink:0,userSelect:"none"}}>⠿</span>}
+              {isEditMode?(
+                <select value={r.status} onChange={e=>{const nr=[...rules];nr[i]={...nr[i],status:e.target.value};onChange(nr);}}
+                  style={{fontSize:11,border:"0.5px solid #ccc",borderRadius:12,padding:"2px 6px",background:s.bg,color:s.color,flexShrink:0,cursor:"pointer"}}>
+                  {Object.entries(STATUS).map(([k,v])=>React.createElement('option',{key:k,value:k},v.label))}
                 </select>
-              ) : <Badge status={r.status} />}
-              <span style={{ fontSize:13.5, color:"#2C2C2A", lineHeight:1.6, flex:1 }}>
-                {isEditMode
-                  ? <Editable value={r.text} onChange={v => { const nr=[...rules]; nr[i]={...nr[i],text:v}; onChange(nr); }} style={{fontSize:13.5}} />
-                  : renderLines(r.text)}
+              ):<Badge status={r.status}/>}
+              <span style={{fontSize:13.5,color:"#2C2C2A",lineHeight:1.6,flex:1}}>
+                {isEditMode?<Editable value={r.text} onChange={v=>{const nr=[...rules];nr[i]={...nr[i],text:v};onChange(nr);}} style={{fontSize:13.5}}/>:renderLines(r.text)}
               </span>
-              {isEditMode && (
-                <button onClick={() => onChange(rules.filter((_,j)=>j!==i))}
-                  style={{ background:"none", border:"none", color:"#A32D2D", cursor:"pointer", fontSize:14, padding:"0 4px", flexShrink:0 }}>✕</button>
-              )}
+              {isEditMode&&<button onClick={()=>onChange(rules.filter((_,j)=>j!==i))} style={{background:"none",border:"none",color:"#A32D2D",cursor:"pointer",fontSize:14,padding:"0 4px",flexShrink:0}}>✕</button>}
             </div>
           </div>
         );
       })}
-      {isEditMode && (
-        <button onClick={() => onChange([...rules, { status:"check", text:"새 항목을 입력하세요" }])}
-          style={{ marginTop:8, width:"100%", fontSize:12, color:"#6C63FF", background:"none",
-            border:"0.5px dashed #6C63FF", borderRadius:6, padding:"5px 0", cursor:"pointer" }}>+ 항목 추가</button>
-      )}
+      {isEditMode&&<button onClick={()=>onChange([...rules,{status:"check",text:"새 항목을 입력하세요"}])} style={{marginTop:8,width:"100%",fontSize:12,color:"#6C63FF",background:"none",border:"0.5px dashed #6C63FF",borderRadius:6,padding:"5px 0",cursor:"pointer"}}>+ 항목 추가</button>}
     </div>
   );
 }
 
 function ExamplesCard({ examples, isEditMode, onChange }) {
   const { dragIdx, overIdx, onDragStart, onDragOver, onDrop, onDragEnd } = useDragList(examples, onChange);
-  const update = (i, patch) => { const ex=[...examples]; ex[i]={...ex[i],...patch}; onChange(ex); };
+  const update=(i,patch)=>{const ex=[...examples];ex[i]={...ex[i],...patch};onChange(ex);};
   return (
     <div onDragEnd={onDragEnd}>
-      {examples.map((ex, i) => {
-        const s = STATUS[ex.result] || STATUS.info;
+      {examples.map((ex,i)=>{
+        const s=STATUS[ex.result]||STATUS.info;
         return (
           <div key={i}>
-            <DropLine visible={isEditMode && overIdx === i && dragIdx !== i} />
-            <div draggable={isEditMode}
-              onDragStart={() => onDragStart(i)} onDragOver={e => { e.preventDefault(); onDragOver(i); }} onDrop={() => onDrop(i)}
-              style={{ display:"flex", alignItems:"flex-start", gap:10, padding:"9px 12px", marginBottom:6,
-                borderRadius:8, background:s.bg, border:`1px solid ${s.border}`, cursor: isEditMode ? "grab" : "default" }}>
-              {isEditMode && <span style={{ fontSize:14, color:s.color, opacity:0.5, flexShrink:0, marginTop:2, userSelect:"none" }}>⠿</span>}
-              {isEditMode ? (
-                <select value={ex.result} onChange={e => update(i,{result:e.target.value})}
-                  style={{ fontSize:11, border:"0.5px solid #ccc", borderRadius:10, padding:"2px 5px", background:"#fff", color:s.color, flexShrink:0 }}>
-                  {Object.entries(STATUS).map(([k,v]) => React.createElement('option',{key:k,value:k},v.label))}
+            <DropLine visible={isEditMode&&overIdx===i&&dragIdx!==i}/>
+            <div draggable={isEditMode} onDragStart={()=>onDragStart(i)} onDragOver={e=>{e.preventDefault();onDragOver(i);}} onDrop={()=>onDrop(i)}
+              style={{display:"flex",alignItems:"flex-start",gap:10,padding:"9px 12px",marginBottom:6,borderRadius:8,background:s.bg,border:`1px solid ${s.border}`,cursor:isEditMode?"grab":"default"}}>
+              {isEditMode&&<span style={{fontSize:14,color:s.color,opacity:0.5,flexShrink:0,marginTop:2,userSelect:"none"}}>⠿</span>}
+              {isEditMode?(
+                <select value={ex.result} onChange={e=>update(i,{result:e.target.value})}
+                  style={{fontSize:11,border:"0.5px solid #ccc",borderRadius:10,padding:"2px 5px",background:"#fff",color:s.color,flexShrink:0}}>
+                  {Object.entries(STATUS).map(([k,v])=>React.createElement('option',{key:k,value:k},v.label))}
                 </select>
-              ) : <span style={{ fontSize:11, fontWeight:700, color:s.dot, flexShrink:0, marginTop:2 }}>{s.label}</span>}
-              <span style={{ fontSize:13, color:s.color, lineHeight:1.6, flex:1 }}>
-                {isEditMode
-                  ? <Editable value={ex.text} onChange={v => update(i,{text:v})} style={{fontSize:13,color:s.color}} />
-                  : renderLines(ex.text)}
+              ):<span style={{fontSize:11,fontWeight:700,color:s.dot,flexShrink:0,marginTop:2}}>{s.label}</span>}
+              <span style={{fontSize:13,color:s.color,lineHeight:1.6,flex:1}}>
+                {isEditMode?<Editable value={ex.text} onChange={v=>update(i,{text:v})} style={{fontSize:13,color:s.color}}/>:renderLines(ex.text)}
               </span>
-              {isEditMode && (
-                <button onClick={() => onChange(examples.filter((_,j)=>j!==i))}
-                  style={{ background:"none", border:"none", color:"#A32D2D", cursor:"pointer", fontSize:14, padding:"0 2px", flexShrink:0 }}>✕</button>
-              )}
+              {isEditMode&&<button onClick={()=>onChange(examples.filter((_,j)=>j!==i))} style={{background:"none",border:"none",color:"#A32D2D",cursor:"pointer",fontSize:14,padding:"0 2px",flexShrink:0}}>✕</button>}
             </div>
           </div>
         );
       })}
-      {isEditMode && (
-        <button onClick={() => onChange([...examples, {result:"pass",text:"예시를 입력하세요"}])}
-          style={{ marginTop:4, width:"100%", fontSize:12, color:"#6C63FF", background:"none",
-            border:"0.5px dashed #6C63FF", borderRadius:6, padding:"5px 0", cursor:"pointer" }}>+ 예시 추가</button>
-      )}
+      {isEditMode&&<button onClick={()=>onChange([...examples,{result:"pass",text:"예시를 입력하세요"}])} style={{marginTop:4,width:"100%",fontSize:12,color:"#6C63FF",background:"none",border:"0.5px dashed #6C63FF",borderRadius:6,padding:"5px 0",cursor:"pointer"}}>+ 예시 추가</button>}
     </div>
   );
 }
 
 function GradesCard({ grades, isEditMode, onChange }) {
   const { dragIdx, overIdx, onDragStart, onDragOver, onDrop, onDragEnd } = useDragList(grades, onChange);
-  const upd = (i,patch) => { const g=[...grades]; g[i]={...g[i],...patch}; onChange(g); };
+  const upd=(i,patch)=>{const g=[...grades];g[i]={...g[i],...patch};onChange(g);};
   return (
-    <div style={{ display:"flex", flexDirection:"column", gap:0 }} onDragEnd={onDragEnd}>
-      {grades.map((g, i) => {
-        const s = STATUS[g.status] || STATUS.info;
+    <div style={{display:"flex",flexDirection:"column",gap:0}} onDragEnd={onDragEnd}>
+      {grades.map((g,i)=>{
+        const s=STATUS[g.status]||STATUS.info;
         return (
           <div key={i}>
-            <DropLine visible={isEditMode && overIdx === i && dragIdx !== i} color={s.dot} />
-            <div draggable={isEditMode}
-              onDragStart={() => onDragStart(i)} onDragOver={e => { e.preventDefault(); onDragOver(i); }} onDrop={() => onDrop(i)}
-              style={{ display:"flex", alignItems:"center", gap:12, marginBottom:6,
-                background:s.bg, border:`1px solid ${s.border}`, borderRadius:8, padding:"10px 14px",
-                cursor: isEditMode ? "grab" : "default" }}>
-              {isEditMode && <span style={{ fontSize:14, color:s.color, opacity:0.5, userSelect:"none" }}>⠿</span>}
-              <span style={{ fontWeight:700, fontSize:14, color:s.color, minWidth:64 }}>
-                {isEditMode ? <Editable value={g.grade} onChange={v=>upd(i,{grade:v})} style={{fontWeight:700,fontSize:14,color:s.color}} /> : g.grade}
+            <DropLine visible={isEditMode&&overIdx===i&&dragIdx!==i} color={s.dot}/>
+            <div draggable={isEditMode} onDragStart={()=>onDragStart(i)} onDragOver={e=>{e.preventDefault();onDragOver(i);}} onDrop={()=>onDrop(i)}
+              style={{display:"flex",alignItems:"center",gap:12,marginBottom:6,background:s.bg,border:`1px solid ${s.border}`,borderRadius:8,padding:"10px 14px",cursor:isEditMode?"grab":"default"}}>
+              {isEditMode&&<span style={{fontSize:14,color:s.color,opacity:0.5,userSelect:"none"}}>⠿</span>}
+              <span style={{fontWeight:700,fontSize:14,color:s.color,minWidth:64}}>
+                {isEditMode?<Editable value={g.grade} onChange={v=>upd(i,{grade:v})} style={{fontWeight:700,fontSize:14,color:s.color}}/>:g.grade}
               </span>
-              <span style={{ fontSize:13, color:s.color, flex:1 }}>
-                {isEditMode ? <Editable value={g.desc} onChange={v=>upd(i,{desc:v})} style={{fontSize:13,color:s.color}} /> : renderLines(g.desc)}
+              <span style={{fontSize:13,color:s.color,flex:1}}>
+                {isEditMode?<Editable value={g.desc} onChange={v=>upd(i,{desc:v})} style={{fontSize:13,color:s.color}}/>:renderLines(g.desc)}
               </span>
-              {isEditMode ? (
+              {isEditMode?(
                 <select value={g.status} onChange={e=>upd(i,{status:e.target.value})}
-                  style={{ fontSize:11, border:"0.5px solid #ccc", borderRadius:10, padding:"2px 5px", background:"#fff", color:s.color }}>
-                  {Object.entries(STATUS).map(([k,v]) => React.createElement('option',{key:k,value:k},v.label))}
+                  style={{fontSize:11,border:"0.5px solid #ccc",borderRadius:10,padding:"2px 5px",background:"#fff",color:s.color}}>
+                  {Object.entries(STATUS).map(([k,v])=>React.createElement('option',{key:k,value:k},v.label))}
                 </select>
-              ) : <Badge status={g.status} />}
+              ):<Badge status={g.status}/>}
             </div>
           </div>
         );
@@ -351,69 +344,57 @@ function GradesCard({ grades, isEditMode, onChange }) {
 
 function LinksCard({ links, isEditMode, onChange }) {
   const { dragIdx, overIdx, onDragStart, onDragOver, onDrop, onDragEnd } = useDragList(links, onChange);
-  const upd = (i,p) => { const ls=[...links]; ls[i]={...ls[i],...p}; onChange(ls); };
+  const upd=(i,p)=>{const ls=[...links];ls[i]={...ls[i],...p};onChange(ls);};
   if (!isEditMode) return (
-    <div style={{ display:"flex", flexWrap:"wrap", gap:6 }}>
-      {links.map((lk,i) => (
+    <div style={{display:"flex",flexWrap:"wrap",gap:6}}>
+      {links.map((lk,i)=>(
         <a key={i} href={lk.url} target="_blank" rel="noopener noreferrer"
-          style={{ display:"inline-flex", alignItems:"center", gap:5, padding:"6px 12px",
-            background:"#E6F1FB", color:"#185FA5", borderRadius:20, fontSize:12,
-            textDecoration:"none", border:"1px solid #85B7EB", fontWeight:500 }}>↗ {lk.label}</a>
+          style={{display:"inline-flex",alignItems:"center",gap:5,padding:"6px 12px",background:"#E6F1FB",color:"#185FA5",borderRadius:20,fontSize:12,textDecoration:"none",border:"1px solid #85B7EB",fontWeight:500}}>↗ {lk.label}</a>
       ))}
     </div>
   );
   return (
     <div onDragEnd={onDragEnd}>
-      {links.map((lk,i) => (
+      {links.map((lk,i)=>(
         <div key={i}>
-          <DropLine visible={overIdx === i && dragIdx !== i} />
+          <DropLine visible={overIdx===i&&dragIdx!==i}/>
           <div draggable onDragStart={()=>onDragStart(i)} onDragOver={e=>{e.preventDefault();onDragOver(i);}} onDrop={()=>onDrop(i)}
-            style={{ display:"flex", gap:4, width:"100%", marginBottom:4, alignItems:"center", cursor:"grab" }}>
-            <span style={{ fontSize:14, color:"#ccc", userSelect:"none", flexShrink:0 }}>⠿</span>
-            <input value={lk.label} onChange={e=>upd(i,{label:e.target.value})}
-              placeholder="링크 이름" style={{ flex:1, fontSize:12, border:"0.5px solid #ccc", borderRadius:4, padding:"3px 7px" }} />
-            <input value={lk.url} onChange={e=>upd(i,{url:e.target.value})}
-              placeholder="URL" style={{ flex:2, fontSize:12, border:"0.5px solid #ccc", borderRadius:4, padding:"3px 7px" }} />
-            <button onClick={()=>onChange(links.filter((_,j)=>j!==i))}
-              style={{ background:"none", border:"none", color:"#A32D2D", cursor:"pointer", fontSize:14 }}>✕</button>
+            style={{display:"flex",gap:4,width:"100%",marginBottom:4,alignItems:"center",cursor:"grab"}}>
+            <span style={{fontSize:14,color:"#ccc",userSelect:"none",flexShrink:0}}>⠿</span>
+            <input value={lk.label} onChange={e=>upd(i,{label:e.target.value})} placeholder="링크 이름" style={{flex:1,fontSize:12,border:"0.5px solid #ccc",borderRadius:4,padding:"3px 7px"}}/>
+            <input value={lk.url} onChange={e=>upd(i,{url:e.target.value})} placeholder="URL" style={{flex:2,fontSize:12,border:"0.5px solid #ccc",borderRadius:4,padding:"3px 7px"}}/>
+            <button onClick={()=>onChange(links.filter((_,j)=>j!==i))} style={{background:"none",border:"none",color:"#A32D2D",cursor:"pointer",fontSize:14}}>✕</button>
           </div>
         </div>
       ))}
-      <button onClick={()=>onChange([...links,{label:"새 링크",url:"https://"}])}
-        style={{ fontSize:12, color:"#6C63FF", background:"none", border:"0.5px dashed #6C63FF",
-          borderRadius:20, padding:"5px 14px", cursor:"pointer", marginTop:4 }}>+ 링크 추가</button>
+      <button onClick={()=>onChange([...links,{label:"새 링크",url:"https://"}])} style={{fontSize:12,color:"#6C63FF",background:"none",border:"0.5px dashed #6C63FF",borderRadius:20,padding:"5px 14px",cursor:"pointer",marginTop:4}}>+ 링크 추가</button>
     </div>
   );
 }
 
 function CardBlock({ card, sectionColor, isEditMode, onUpdate, onDelete, onDragStart, onDragOver, onDrop, isOver }) {
-  const upd = p => onUpdate({...card,...p});
-  const typeLabel = { rules:"판정기준", examples:"예시", links:"링크", text:"텍스트", grades:"등급표" };
+  const upd=p=>onUpdate({...card,...p});
+  const typeLabel={rules:"판정기준",examples:"예시",links:"링크",text:"텍스트",grades:"등급표"};
   return (
     <div draggable={isEditMode} onDragStart={onDragStart} onDragOver={e=>{e.preventDefault();onDragOver();}} onDrop={onDrop}
-      style={{ background:"#fff", border:`0.5px solid ${isOver?"#6C63FF":"rgba(0,0,0,0.09)"}`,
-        borderLeft:`3px solid ${sectionColor}`, borderRadius:10, padding:"14px 16px", marginBottom:12,
-        position:"relative", cursor: isEditMode ? "grab" : "default",
-        boxShadow: isOver ? `0 0 0 2px ${sectionColor}33` : "none" }}>
-      {isEditMode && (
-        <div style={{ position:"absolute", top:10, right:10, display:"flex", gap:4, alignItems:"center" }}>
-          <span style={{ fontSize:16, color:"#ccc", userSelect:"none" }}>⠿</span>
-          <span style={{ fontSize:10, color:"#888", padding:"2px 6px", background:"#F1EFE8", borderRadius:4 }}>{typeLabel[card.type]}</span>
-          <button onClick={onDelete} style={{ background:"#FCEBEB", border:"none", borderRadius:4, color:"#A32D2D", fontSize:11, padding:"2px 7px", cursor:"pointer" }}>삭제</button>
+      style={{background:"#fff",border:`0.5px solid ${isOver?"#6C63FF":"rgba(0,0,0,0.09)"}`,borderLeft:`3px solid ${sectionColor}`,borderRadius:10,padding:"14px 16px",marginBottom:12,position:"relative",cursor:isEditMode?"grab":"default",boxShadow:isOver?`0 0 0 2px ${sectionColor}33`:"none"}}>
+      {isEditMode&&(
+        <div style={{position:"absolute",top:10,right:10,display:"flex",gap:4,alignItems:"center"}}>
+          <span style={{fontSize:16,color:"#ccc",userSelect:"none"}}>⠿</span>
+          <span style={{fontSize:10,color:"#888",padding:"2px 6px",background:"#F1EFE8",borderRadius:4}}>{typeLabel[card.type]}</span>
+          <button onClick={onDelete} style={{background:"#FCEBEB",border:"none",borderRadius:4,color:"#A32D2D",fontSize:11,padding:"2px 7px",cursor:"pointer"}}>삭제</button>
         </div>
       )}
-      <p style={{ fontSize:12, fontWeight:600, color:"#888780", marginBottom:10, marginTop:0, textTransform:"uppercase", letterSpacing:"0.04em" }}>
-        {isEditMode ? <Editable value={card.title} onChange={v=>upd({title:v})} style={{fontSize:12,fontWeight:600,color:"#888780"}} /> : card.title}
+      <p style={{fontSize:12,fontWeight:600,color:"#888780",marginBottom:10,marginTop:0,textTransform:"uppercase",letterSpacing:"0.04em"}}>
+        {isEditMode?<Editable value={card.title} onChange={v=>upd({title:v})} style={{fontSize:12,fontWeight:600,color:"#888780"}}/>:card.title}
       </p>
-      {card.type==="rules"    && <RulesCard    rules={card.rules||[]}       isEditMode={isEditMode} onChange={rules=>upd({rules})} />}
-      {card.type==="examples" && <ExamplesCard examples={card.examples||[]} isEditMode={isEditMode} onChange={examples=>upd({examples})} />}
-      {card.type==="links"    && <LinksCard    links={card.links||[]}       isEditMode={isEditMode} onChange={links=>upd({links})} />}
-      {card.type==="grades"   && <GradesCard   grades={card.grades||[]}     isEditMode={isEditMode} onChange={grades=>upd({grades})} />}
-      {card.type==="text" && (
-        <p style={{ fontSize:13.5, color:"#5F5E5A", margin:0, lineHeight:1.7, whiteSpace:"pre-wrap" }}>
-          {isEditMode
-            ? <Editable value={card.text} onChange={v=>upd({text:v})} style={{fontSize:13.5,display:"block",width:"100%"}} />
-            : renderLines(card.text)}
+      {card.type==="rules"&&<RulesCard rules={card.rules||[]} isEditMode={isEditMode} onChange={rules=>upd({rules})}/>}
+      {card.type==="examples"&&<ExamplesCard examples={card.examples||[]} isEditMode={isEditMode} onChange={examples=>upd({examples})}/>}
+      {card.type==="links"&&<LinksCard links={card.links||[]} isEditMode={isEditMode} onChange={links=>upd({links})}/>}
+      {card.type==="grades"&&<GradesCard grades={card.grades||[]} isEditMode={isEditMode} onChange={grades=>upd({grades})}/>}
+      {card.type==="text"&&(
+        <p style={{fontSize:13.5,color:"#5F5E5A",margin:0,lineHeight:1.7,whiteSpace:"pre-wrap"}}>
+          {isEditMode?<Editable value={card.text} onChange={v=>upd({text:v})} style={{fontSize:13.5,display:"block",width:"100%"}}/>:renderLines(card.text)}
         </p>
       )}
     </div>
@@ -421,21 +402,20 @@ function CardBlock({ card, sectionColor, isEditMode, onUpdate, onDelete, onDragS
 }
 
 function AddCardPanel({ sectionColor, onAdd }) {
-  const opts = [
-    { type:"rules",    label:"판정 기준", desc:"PASS/FAIL 뱃지",  init:{rules:[{status:"check",text:"항목 입력"}]} },
-    { type:"examples", label:"예시",     desc:"색상 블록",        init:{examples:[{result:"pass",text:"예시 입력"}]} },
-    { type:"links",    label:"링크",     desc:"외부 링크",        init:{links:[{label:"링크명",url:"https://"}]} },
-    { type:"text",     label:"텍스트",   desc:"일반 설명",        init:{text:"내용을 입력하세요."} },
-    { type:"grades",   label:"등급표",   desc:"등급별 색상 표",  init:{grades:[{grade:"등급",desc:"설명",status:"check"}]} },
+  const opts=[
+    {type:"rules",label:"판정 기준",desc:"PASS/FAIL 뱃지",init:{rules:[{status:"check",text:"항목 입력"}]}},
+    {type:"examples",label:"예시",desc:"색상 블록",init:{examples:[{result:"pass",text:"예시 입력"}]}},
+    {type:"links",label:"링크",desc:"외부 링크",init:{links:[{label:"링크명",url:"https://"}]}},
+    {type:"text",label:"텍스트",desc:"일반 설명",init:{text:"내용을 입력하세요."}},
+    {type:"grades",label:"등급표",desc:"등급별 색상 표",init:{grades:[{grade:"등급",desc:"설명",status:"check"}]}},
   ];
   return (
-    <div style={{ display:"flex", flexWrap:"wrap", gap:6 }}>
-      {opts.map(o => (
+    <div style={{display:"flex",flexWrap:"wrap",gap:6}}>
+      {opts.map(o=>(
         <button key={o.type} onClick={()=>onAdd(o.type,o.init)}
-          style={{ display:"flex", flexDirection:"column", alignItems:"flex-start",
-            padding:"8px 14px", borderRadius:8, border:`0.5px dashed ${sectionColor}`, background:"none", cursor:"pointer" }}>
-          <span style={{ fontSize:12, fontWeight:600, color:sectionColor }}>{o.label}</span>
-          <span style={{ fontSize:10, color:"#888780", marginTop:1 }}>{o.desc}</span>
+          style={{display:"flex",flexDirection:"column",alignItems:"flex-start",padding:"8px 14px",borderRadius:8,border:`0.5px dashed ${sectionColor}`,background:"none",cursor:"pointer"}}>
+          <span style={{fontSize:12,fontWeight:600,color:sectionColor}}>{o.label}</span>
+          <span style={{fontSize:10,color:"#888780",marginTop:1}}>{o.desc}</span>
         </button>
       ))}
     </div>
@@ -443,166 +423,190 @@ function AddCardPanel({ sectionColor, onAdd }) {
 }
 
 function App() {
-  const [data, setData] = useState(() => {
-    try { const s = localStorage.getItem(STORAGE_KEY); return s ? JSON.parse(s) : defaultData; }
-    catch { return defaultData; }
-  });
-  const [active, setActive] = useState(data.sections[0]?.id);
+  const [data, setData] = useState(defaultData);
+  const [active, setActive] = useState(defaultData.sections[0]?.id);
   const [isEditMode, setIsEditMode] = useState(false);
-  const [saved, setSaved] = useState(true);
+  const [syncStatus, setSyncStatus] = useState("connecting"); // connecting | synced | saving | error
   const [showPwModal, setShowPwModal] = useState(false);
   const [pwInput, setPwInput] = useState("");
   const [pwError, setPwError] = useState(false);
   const [dragCardIdx, setDragCardIdx] = useState(null);
   const [overCardIdx, setOverCardIdx] = useState(null);
+  const isRemoteUpdate = useRef(false);
+  const saveTimer = useRef(null);
 
+  // Firebase 연동
   useEffect(() => {
-    setSaved(false);
-    const t = setTimeout(() => {
-      try { localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); setSaved(true); } catch {}
-    }, 600);
-    return () => clearTimeout(t);
-  }, [data]);
+    const init = () => {
+      const db = window.__firebaseDb;
+      const fbRef = window.__firebaseRef;
+      const onValue = window.__firebaseOnValue;
+      if (!db) return;
+
+      const dataRef = fbRef(db, "guide");
+      onValue(dataRef, (snapshot) => {
+        const val = snapshot.val();
+        if (val) {
+          isRemoteUpdate.current = true;
+          setData(val);
+          setSyncStatus("synced");
+        } else {
+          setSyncStatus("synced");
+        }
+      }, () => setSyncStatus("error"));
+    };
+
+    if (window.__firebaseReady) init();
+    else window.addEventListener("firebase-ready", init);
+    return () => window.removeEventListener("firebase-ready", init);
+  }, []);
+
+  // 데이터 변경 시 Firebase에 저장 (편집 모드일 때만)
+  const saveToFirebase = useCallback((newData) => {
+    if (!window.__firebaseDb || !isEditMode) return;
+    if (isRemoteUpdate.current) { isRemoteUpdate.current = false; return; }
+    setSyncStatus("saving");
+    clearTimeout(saveTimer.current);
+    saveTimer.current = setTimeout(() => {
+      const db = window.__firebaseDb;
+      const fbRef = window.__firebaseRef;
+      const set = window.__firebaseSet;
+      set(fbRef(db, "guide"), newData)
+        .then(() => setSyncStatus("synced"))
+        .catch(() => setSyncStatus("error"));
+    }, 800);
+  }, [isEditMode]);
+
+  const updateData = (updater) => {
+    setData(prev => {
+      const next = updater(prev);
+      saveToFirebase(next);
+      return next;
+    });
+  };
 
   const cs = data.sections.find(s => s.id === active) || data.sections[0];
-  const updateSection = (sid, patch) => setData(d => ({...d, sections: d.sections.map(s => s.id===sid ? {...s,...patch} : s)}));
-  const updateCard = (sid, cid, patch) => setData(d => ({...d, sections: d.sections.map(s => s.id===sid ? {...s, cards: s.cards.map(c => c.id===cid ? patch : c)} : s)}));
-  const deleteCard = (sid, cid) => setData(d => ({...d, sections: d.sections.map(s => s.id===sid ? {...s, cards: s.cards.filter(c => c.id!==cid)} : s)}));
-  const addCard = (sid, type, init) => {
-    const nc = {id:"c"+Date.now(), title:"새 카드", type, ...init};
-    setData(d => ({...d, sections: d.sections.map(s => s.id===sid ? {...s, cards:[...s.cards, nc]} : s)}));
+  const updateSection = (sid,patch) => updateData(d=>({...d,sections:d.sections.map(s=>s.id===sid?{...s,...patch}:s)}));
+  const updateCard = (sid,cid,patch) => updateData(d=>({...d,sections:d.sections.map(s=>s.id===sid?{...s,cards:s.cards.map(c=>c.id===cid?patch:c)}:s)}));
+  const deleteCard = (sid,cid) => updateData(d=>({...d,sections:d.sections.map(s=>s.id===sid?{...s,cards:s.cards.filter(c=>c.id!==cid)}:s)}));
+  const addCard = (sid,type,init) => {
+    const nc={id:"c"+Date.now(),title:"새 카드",type,...init};
+    updateData(d=>({...d,sections:d.sections.map(s=>s.id===sid?{...s,cards:[...s.cards,nc]}:s)}));
   };
   const addSection = () => {
-    const id = "sec_"+Date.now();
-    setData(d => ({...d, sections:[...d.sections, {id, label:"새 섹션", icon:"◉", color:"#888780", bg:"#F1EFE8", cards:[]}]}));
+    const id="sec_"+Date.now();
+    updateData(d=>({...d,sections:[...d.sections,{id,label:"새 섹션",icon:"◉",color:"#888780",bg:"#F1EFE8",cards:[]}]}));
     setActive(id);
   };
-  const deleteSection = sid => { setData(d => ({...d, sections: d.sections.filter(s => s.id!==sid)})); setActive(data.sections[0]?.id); };
-  const reset = () => { if (window.confirm("초기화하면 모든 변경사항이 사라집니다. 계속하시겠어요?")) { setData(defaultData); setActive(defaultData.sections[0]?.id); } };
+  const deleteSection = sid => { updateData(d=>({...d,sections:d.sections.filter(s=>s.id!==sid)})); setActive(data.sections[0]?.id); };
+  const reset = () => {
+    if (window.confirm("초기화하면 모든 변경사항이 사라집니다. 계속하시겠어요?")) {
+      updateData(() => defaultData);
+      setActive(defaultData.sections[0]?.id);
+    }
+  };
   const dropCard = toIdx => {
-    if (dragCardIdx===null || dragCardIdx===toIdx) { setDragCardIdx(null); setOverCardIdx(null); return; }
-    const cards = [...cs.cards];
-    const [moved] = cards.splice(dragCardIdx, 1);
-    cards.splice(toIdx, 0, moved);
-    updateSection(cs.id, {cards});
-    setDragCardIdx(null); setOverCardIdx(null);
+    if (dragCardIdx===null||dragCardIdx===toIdx){setDragCardIdx(null);setOverCardIdx(null);return;}
+    const cards=[...cs.cards]; const [moved]=cards.splice(dragCardIdx,1); cards.splice(toIdx,0,moved);
+    updateSection(cs.id,{cards}); setDragCardIdx(null); setOverCardIdx(null);
   };
   const tryEnterEdit = () => { setShowPwModal(true); setPwInput(""); setPwError(false); };
-  const submitPw = () => { if (pwInput===EDIT_PASSWORD) { setIsEditMode(true); setShowPwModal(false); } else { setPwError(true); setPwInput(""); } };
+  const submitPw = () => { if(pwInput===EDIT_PASSWORD){setIsEditMode(true);setShowPwModal(false);}else{setPwError(true);setPwInput("");} };
+
+  const syncLabel = { connecting:"● 연결 중...", synced:"✓ 동기화됨", saving:"● 저장 중...", error:"⚠ 저장 실패" };
+  const syncColor = { connecting:"#854F0B", synced:"#3B6D11", saving:"#854F0B", error:"#A32D2D" };
 
   return (
-    <div style={{ maxWidth:800, margin:"0 auto", paddingBottom:"4rem" }}>
-      {showPwModal && (
-        <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.35)", display:"flex",
-          alignItems:"center", justifyContent:"center", zIndex:999 }}>
-          <div style={{ background:"#fff", borderRadius:14, padding:"28px 32px", width:320,
-            boxSizing:"border-box", border:"0.5px solid rgba(0,0,0,0.1)" }}>
-            <p style={{ margin:"0 0 4px", fontSize:15, fontWeight:600, color:"#2C2C2A" }}>관리자 비밀번호</p>
-            <p style={{ margin:"0 0 16px", fontSize:12, color:"#888780" }}>편집 권한이 있는 경우에만 입력하세요.</p>
+    <div style={{maxWidth:800,margin:"0 auto",paddingBottom:"4rem"}}>
+      {showPwModal&&(
+        <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.35)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:999}}>
+          <div style={{background:"#fff",borderRadius:14,padding:"28px 32px",width:320,boxSizing:"border-box",border:"0.5px solid rgba(0,0,0,0.1)"}}>
+            <p style={{margin:"0 0 4px",fontSize:15,fontWeight:600,color:"#2C2C2A"}}>관리자 비밀번호</p>
+            <p style={{margin:"0 0 16px",fontSize:12,color:"#888780"}}>편집 권한이 있는 경우에만 입력하세요.</p>
             <input type="password" value={pwInput} autoFocus
-              onChange={e=>{ setPwInput(e.target.value); setPwError(false); }}
+              onChange={e=>{setPwInput(e.target.value);setPwError(false);}}
               onKeyDown={e=>e.key==="Enter"&&submitPw()}
               placeholder="비밀번호 입력"
-              style={{ width:"100%", padding:"9px 12px", fontSize:14, borderRadius:8, boxSizing:"border-box",
-                border: pwError?"1.5px solid #E24B4A":"1px solid #ccc", outline:"none", marginBottom:6 }} />
-            {pwError && <p style={{ margin:"0 0 10px", fontSize:12, color:"#A32D2D" }}>비밀번호가 올바르지 않습니다.</p>}
-            <div style={{ display:"flex", gap:8, marginTop:4 }}>
-              <button onClick={()=>setShowPwModal(false)} style={{ flex:1, padding:"8px", borderRadius:8, border:"0.5px solid #ccc", background:"transparent", cursor:"pointer", fontSize:13, color:"#5F5E5A" }}>취소</button>
-              <button onClick={submitPw} style={{ flex:1, padding:"8px", borderRadius:8, border:"none", background:"#534AB7", color:"#fff", cursor:"pointer", fontSize:13, fontWeight:600 }}>확인</button>
+              style={{width:"100%",padding:"9px 12px",fontSize:14,borderRadius:8,boxSizing:"border-box",border:pwError?"1.5px solid #E24B4A":"1px solid #ccc",outline:"none",marginBottom:6}}/>
+            {pwError&&<p style={{margin:"0 0 10px",fontSize:12,color:"#A32D2D"}}>비밀번호가 올바르지 않습니다.</p>}
+            <div style={{display:"flex",gap:8,marginTop:4}}>
+              <button onClick={()=>setShowPwModal(false)} style={{flex:1,padding:"8px",borderRadius:8,border:"0.5px solid #ccc",background:"transparent",cursor:"pointer",fontSize:13,color:"#5F5E5A"}}>취소</button>
+              <button onClick={submitPw} style={{flex:1,padding:"8px",borderRadius:8,border:"none",background:"#534AB7",color:"#fff",cursor:"pointer",fontSize:13,fontWeight:600}}>확인</button>
             </div>
           </div>
         </div>
       )}
 
-      <div style={{ padding:"18px 0 14px", borderBottom:"0.5px solid rgba(0,0,0,0.08)", marginBottom:14,
-        display:"flex", alignItems:"center", justifyContent:"space-between", flexWrap:"wrap", gap:8 }}>
+      <div style={{padding:"18px 0 14px",borderBottom:"0.5px solid rgba(0,0,0,0.08)",marginBottom:14,display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:8}}>
         <div>
-          <h2 style={{ margin:0, fontSize:18, fontWeight:600, color:"#2C2C2A" }}>KC 인증 검수 가이드</h2>
-          <p style={{ margin:"3px 0 0", fontSize:11, color: saved?"#3B6D11":"#854F0B" }}>{saved?"✓ 자동 저장됨":"● 저장 중..."}</p>
+          <h2 style={{margin:0,fontSize:18,fontWeight:600,color:"#2C2C2A"}}>KC 인증 검수 가이드</h2>
+          <p style={{margin:"3px 0 0",fontSize:11,color:syncColor[syncStatus]}}>{syncLabel[syncStatus]}</p>
         </div>
-        <div style={{ display:"flex", gap:6, alignItems:"center" }}>
-          {!isEditMode && (
-            <div style={{ display:"flex", gap:8, marginRight:8 }}>
-              {Object.entries(STATUS).map(([k,v]) => (
-                <span key={k} style={{ display:"inline-flex", alignItems:"center", gap:4, fontSize:11 }}>
-                  <span style={{ width:7, height:7, borderRadius:"50%", background:v.dot }} />
-                  <span style={{ color:"#888780" }}>{v.label}</span>
+        <div style={{display:"flex",gap:6,alignItems:"center"}}>
+          {!isEditMode&&(
+            <div style={{display:"flex",gap:8,marginRight:8}}>
+              {Object.entries(STATUS).map(([k,v])=>(
+                <span key={k} style={{display:"inline-flex",alignItems:"center",gap:4,fontSize:11}}>
+                  <span style={{width:7,height:7,borderRadius:"50%",background:v.dot}}/>
+                  <span style={{color:"#888780"}}>{v.label}</span>
                 </span>
               ))}
             </div>
           )}
           <button onClick={()=>isEditMode?setIsEditMode(false):tryEnterEdit()}
-            style={{ padding:"6px 14px", borderRadius:6, fontSize:13, cursor:"pointer", fontWeight: isEditMode?600:400,
-              background: isEditMode?"#EEEDFE":"transparent", color: isEditMode?"#534AB7":"#5F5E5A",
-              border: isEditMode?"1.5px solid #534AB7":"0.5px solid rgba(0,0,0,0.2)" }}>
+            style={{padding:"6px 14px",borderRadius:6,fontSize:13,cursor:"pointer",fontWeight:isEditMode?600:400,background:isEditMode?"#EEEDFE":"transparent",color:isEditMode?"#534AB7":"#5F5E5A",border:isEditMode?"1.5px solid #534AB7":"0.5px solid rgba(0,0,0,0.2)"}}>
             {isEditMode?"✏ 편집 중":"✏ 편집"}
           </button>
-          <button onClick={reset} style={{ padding:"6px 10px", borderRadius:6, fontSize:12,
-            cursor:"pointer", background:"transparent", color:"#A32D2D", border:"0.5px solid rgba(162,45,45,0.3)" }}>초기화</button>
+          <button onClick={reset} style={{padding:"6px 10px",borderRadius:6,fontSize:12,cursor:"pointer",background:"transparent",color:"#A32D2D",border:"0.5px solid rgba(162,45,45,0.3)"}}>초기화</button>
         </div>
       </div>
 
-      {isEditMode && (
-        <div style={{ background:"#EEEDFE", borderRadius:8, padding:"8px 14px", marginBottom:12,
-          fontSize:12, color:"#534AB7", border:"0.5px solid #AFA9EC" }}>
+      {isEditMode&&(
+        <div style={{background:"#EEEDFE",borderRadius:8,padding:"8px 14px",marginBottom:12,fontSize:12,color:"#534AB7",border:"0.5px solid #AFA9EC"}}>
           ✏ 편집 모드 — 텍스트 클릭하여 수정 · Enter 저장 · <strong>Shift+Enter 줄바꿈</strong> · <strong>⠿ 드래그하여 순서 변경</strong>
         </div>
       )}
 
-      <div style={{ display:"flex", flexWrap:"wrap", gap:5, marginBottom:20 }}>
-        {data.sections.map(s => (
-          <button key={s.id} onClick={()=>setActive(s.id)} style={{
-            padding:"6px 13px", borderRadius:20, fontSize:13, cursor:"pointer",
-            border: active===s.id?`1.5px solid ${s.color}`:"0.5px solid rgba(0,0,0,0.15)",
-            background: active===s.id?s.bg:"transparent",
-            color: active===s.id?s.color:"#5F5E5A",
-            fontWeight: active===s.id?600:400 }}>
+      <div style={{display:"flex",flexWrap:"wrap",gap:5,marginBottom:20}}>
+        {data.sections.map(s=>(
+          <button key={s.id} onClick={()=>setActive(s.id)} style={{padding:"6px 13px",borderRadius:20,fontSize:13,cursor:"pointer",border:active===s.id?`1.5px solid ${s.color}`:"0.5px solid rgba(0,0,0,0.15)",background:active===s.id?s.bg:"transparent",color:active===s.id?s.color:"#5F5E5A",fontWeight:active===s.id?600:400}}>
             {s.icon} {s.label}
           </button>
         ))}
-        {isEditMode && (
-          <button onClick={addSection} style={{ padding:"6px 13px", borderRadius:20, fontSize:13,
-            cursor:"pointer", background:"none", color:"#6C63FF", border:"0.5px dashed #6C63FF" }}>+ 섹션 추가</button>
-        )}
+        {isEditMode&&<button onClick={addSection} style={{padding:"6px 13px",borderRadius:20,fontSize:13,cursor:"pointer",background:"none",color:"#6C63FF",border:"0.5px dashed #6C63FF"}}>+ 섹션 추가</button>}
       </div>
 
-      {cs && (
+      {cs&&(
         <div>
-          <div style={{ borderTop:`3px solid ${cs.color}`, paddingTop:16, marginBottom:16,
-            display:"flex", alignItems:"center", justifyContent:"space-between", flexWrap:"wrap", gap:8 }}>
-            {isEditMode ? (
-              <div style={{ display:"flex", alignItems:"center", gap:8, flex:1, flexWrap:"wrap" }}>
-                <input value={cs.icon} onChange={e=>updateSection(cs.id,{icon:e.target.value})}
-                  style={{ width:36, fontSize:18, textAlign:"center", border:"0.5px solid #ccc", borderRadius:4, padding:3 }} />
-                <input value={cs.label} onChange={e=>updateSection(cs.id,{label:e.target.value})}
-                  style={{ fontSize:15, fontWeight:600, border:"0.5px solid #ccc", borderRadius:4, padding:"3px 8px", color:cs.color }} />
-                <input type="color" value={cs.color} onChange={e=>updateSection(cs.id,{color:e.target.value})}
-                  style={{ width:28, height:28, border:"none", cursor:"pointer", borderRadius:4, padding:0 }} />
-                <button onClick={()=>deleteSection(cs.id)} style={{ marginLeft:"auto", fontSize:12,
-                  color:"#A32D2D", background:"#FCEBEB", border:"none", borderRadius:4, padding:"3px 10px", cursor:"pointer" }}>섹션 삭제</button>
+          <div style={{borderTop:`3px solid ${cs.color}`,paddingTop:16,marginBottom:16,display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:8}}>
+            {isEditMode?(
+              <div style={{display:"flex",alignItems:"center",gap:8,flex:1,flexWrap:"wrap"}}>
+                <input value={cs.icon} onChange={e=>updateSection(cs.id,{icon:e.target.value})} style={{width:36,fontSize:18,textAlign:"center",border:"0.5px solid #ccc",borderRadius:4,padding:3}}/>
+                <input value={cs.label} onChange={e=>updateSection(cs.id,{label:e.target.value})} style={{fontSize:15,fontWeight:600,border:"0.5px solid #ccc",borderRadius:4,padding:"3px 8px",color:cs.color}}/>
+                <input type="color" value={cs.color} onChange={e=>updateSection(cs.id,{color:e.target.value})} style={{width:28,height:28,border:"none",cursor:"pointer",borderRadius:4,padding:0}}/>
+                <button onClick={()=>deleteSection(cs.id)} style={{marginLeft:"auto",fontSize:12,color:"#A32D2D",background:"#FCEBEB",border:"none",borderRadius:4,padding:"3px 10px",cursor:"pointer"}}>섹션 삭제</button>
               </div>
-            ) : (
-              <h3 style={{ margin:0, fontSize:16, fontWeight:600, color:cs.color }}>{cs.icon} {cs.label}</h3>
+            ):(
+              <h3 style={{margin:0,fontSize:16,fontWeight:600,color:cs.color}}>{cs.icon} {cs.label}</h3>
             )}
           </div>
 
-          {cs.cards.map((card, idx) => (
-            <div key={card.id} style={{ borderTop: isEditMode && overCardIdx===idx && dragCardIdx!==idx ? `2px solid ${cs.color}` : "2px solid transparent", borderRadius:2 }}>
+          {cs.cards.map((card,idx)=>(
+            <div key={card.id} style={{borderTop:isEditMode&&overCardIdx===idx&&dragCardIdx!==idx?`2px solid ${cs.color}`:"2px solid transparent",borderRadius:2}}>
               <CardBlock card={card} sectionColor={cs.color} isEditMode={isEditMode}
                 onUpdate={p=>updateCard(cs.id,card.id,p)}
                 onDelete={()=>deleteCard(cs.id,card.id)}
                 onDragStart={()=>setDragCardIdx(idx)}
                 onDragOver={()=>setOverCardIdx(idx)}
                 onDrop={()=>dropCard(idx)}
-                isOver={isEditMode && overCardIdx===idx && dragCardIdx!==idx} />
+                isOver={isEditMode&&overCardIdx===idx&&dragCardIdx!==idx}/>
             </div>
           ))}
 
-          {isEditMode && (
-            <div style={{ marginTop:12, padding:"12px 14px", background:"#F9F8FF",
-              border:"0.5px dashed #AFA9EC", borderRadius:10 }}>
-              <p style={{ margin:"0 0 8px", fontSize:11, color:"#888780", fontWeight:600, textTransform:"uppercase", letterSpacing:"0.05em" }}>카드 추가</p>
-              <AddCardPanel sectionColor={cs.color} onAdd={(type,init)=>addCard(cs.id,type,init)} />
+          {isEditMode&&(
+            <div style={{marginTop:12,padding:"12px 14px",background:"#F9F8FF",border:"0.5px dashed #AFA9EC",borderRadius:10}}>
+              <p style={{margin:"0 0 8px",fontSize:11,color:"#888780",fontWeight:600,textTransform:"uppercase",letterSpacing:"0.05em"}}>카드 추가</p>
+              <AddCardPanel sectionColor={cs.color} onAdd={(type,init)=>addCard(cs.id,type,init)}/>
             </div>
           )}
         </div>
