@@ -269,12 +269,9 @@ function ImageExamplesCard({ rows, isEditMode, onChange }) {
   const [uploading, setUploading] = useState({});
   const [lightbox, setLightbox] = useState(null);
   const fileRefs = useRef({});
-
   const updateRow = (rowIdx, patch) => {
-    const next = rows.map((r, i) => i === rowIdx ? { ...r, ...patch } : r);
-    onChange(next);
+    onChange(rows.map((r, i) => i === rowIdx ? { ...r, ...patch } : r));
   };
-
   const handleFileChange = async (e, rowIdx) => {
     const files = Array.from(e.target.files);
     if (!files.length) return;
@@ -283,31 +280,18 @@ function ImageExamplesCard({ rows, isEditMode, onChange }) {
       const urls = await Promise.all(files.map(uploadToCloudinary));
       const newImgs = urls.map(url => ({ url, caption: "" }));
       updateRow(rowIdx, { images: [...(rows[rowIdx].images || []), ...newImgs] });
-    } catch(err) {
-      alert("이미지 업로드 중 오류가 발생했습니다.");
-    }
+    } catch(err) { alert("이미지 업로드 중 오류가 발생했습니다."); }
     setUploading(u => ({ ...u, [rowIdx]: false }));
     e.target.value = "";
   };
-
   const updateCaption = (rowIdx, imgIdx, caption) => {
-    const imgs = rows[rowIdx].images.map((img, i) => i === imgIdx ? { ...img, caption } : img);
-    updateRow(rowIdx, { images: imgs });
+    updateRow(rowIdx, { images: rows[rowIdx].images.map((img, i) => i === imgIdx ? { ...img, caption } : img) });
   };
-
   const deleteImage = (rowIdx, imgIdx) => {
-    const imgs = rows[rowIdx].images.filter((_, i) => i !== imgIdx);
-    updateRow(rowIdx, { images: imgs });
+    updateRow(rowIdx, { images: rows[rowIdx].images.filter((_, i) => i !== imgIdx) });
   };
-
-  const addRow = () => {
-    onChange([...rows, { status: "check", label: "새 행", desc: "", images: [] }]);
-  };
-
-  const deleteRow = (rowIdx) => {
-    onChange(rows.filter((_, i) => i !== rowIdx));
-  };
-
+  const addRow = () => onChange([...rows, { status: "check", label: "새 행", desc: "", images: [] }]);
+  const deleteRow = (rowIdx) => onChange(rows.filter((_, i) => i !== rowIdx));
   return (
     <div>
       {lightbox && (
@@ -320,7 +304,6 @@ function ImageExamplesCard({ rows, isEditMode, onChange }) {
           </div>
         </div>
       )}
-
       {rows.map((row, rowIdx) => {
         const s = STATUS[row.status] || STATUS.info;
         return (
@@ -328,72 +311,48 @@ function ImageExamplesCard({ rows, isEditMode, onChange }) {
             {rowIdx > 0 && <div style={{ borderTop:"0.5px solid rgba(0,0,0,0.06)", marginBottom:14 }} />}
             <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:8, flexWrap:"wrap" }}>
               {isEditMode ? (
-                <select value={row.status}
-                  onChange={e => updateRow(rowIdx, { status: e.target.value })}
-                  style={{ fontSize:11, border:"0.5px solid #ccc", borderRadius:12, padding:"2px 6px",
-                    background:s.bg, color:s.color, cursor:"pointer" }}>
+                <select value={row.status} onChange={e => updateRow(rowIdx, { status: e.target.value })}
+                  style={{ fontSize:11, border:"0.5px solid #ccc", borderRadius:12, padding:"2px 6px", background:s.bg, color:s.color, cursor:"pointer" }}>
                   {Object.entries(STATUS).map(([k,v]) => React.createElement('option',{key:k,value:k},v.label))}
                 </select>
               ) : <Badge status={row.status} />}
               <span style={{ fontSize:12, color:"#5F5E5A", flex:1 }}>
                 {isEditMode
-                  ? <Editable value={row.desc} onChange={v => updateRow(rowIdx, { desc: v })}
-                      style={{ fontSize:12, color:"#5F5E5A" }} />
-                  : row.desc && renderLines(row.desc)
-                }
+                  ? <Editable value={row.desc} onChange={v => updateRow(rowIdx, { desc: v })} style={{ fontSize:12, color:"#5F5E5A" }} />
+                  : row.desc && renderLines(row.desc)}
               </span>
-              {isEditMode && (
-                <button onClick={() => deleteRow(rowIdx)}
-                  style={{ background:"none", border:"none", color:"#A32D2D", cursor:"pointer", fontSize:13, padding:"0 4px" }}>✕</button>
-              )}
+              {isEditMode && <button onClick={() => deleteRow(rowIdx)} style={{ background:"none", border:"none", color:"#A32D2D", cursor:"pointer", fontSize:13, padding:"0 4px" }}>✕</button>}
             </div>
             <div style={{ display:"flex", gap:8, flexWrap:"wrap", alignItems:"flex-start", paddingLeft:4 }}>
               {(row.images || []).map((img, imgIdx) => (
                 <div key={imgIdx} style={{ position:"relative", flexShrink:0 }}>
-                  <div style={{ width:110, height:82, borderRadius:8, overflow:"hidden",
-                    border:`1.5px solid ${s.border}`, cursor:"zoom-in", background:"#f0f0f0" }}
+                  <div style={{ width:110, height:82, borderRadius:8, overflow:"hidden", border:`1.5px solid ${s.border}`, cursor:"zoom-in", background:"#f0f0f0" }}
                     onClick={() => !isEditMode && setLightbox({ url: img.url, caption: img.caption })}>
                     <img src={img.url} style={{ width:"100%", height:"100%", objectFit:"cover" }} />
                   </div>
-                  {isEditMode && (
-                    <button onClick={() => deleteImage(rowIdx, imgIdx)}
-                      style={{ position:"absolute", top:-6, right:-6, width:18, height:18, borderRadius:"50%",
-                        background:"#A32D2D", color:"#fff", border:"none", cursor:"pointer",
-                        fontSize:11, display:"flex", alignItems:"center", justifyContent:"center", lineHeight:1 }}>✕</button>
-                  )}
+                  {isEditMode && <button onClick={() => deleteImage(rowIdx, imgIdx)}
+                    style={{ position:"absolute", top:-6, right:-6, width:18, height:18, borderRadius:"50%", background:"#A32D2D", color:"#fff", border:"none", cursor:"pointer", fontSize:11, display:"flex", alignItems:"center", justifyContent:"center", lineHeight:1 }}>✕</button>}
                   {(isEditMode || img.caption) && (
                     <div style={{ marginTop:3, width:110 }}>
                       {isEditMode
-                        ? <input value={img.caption} placeholder="캡션 (선택)"
-                            onChange={e => updateCaption(rowIdx, imgIdx, e.target.value)}
-                            style={{ width:"100%", fontSize:10, border:"0.5px solid #ccc", borderRadius:4,
-                              padding:"2px 5px", color:"#5F5E5A", boxSizing:"border-box" }} />
-                        : <p style={{ fontSize:10, color:"#888780", margin:0, textAlign:"center",
-                            whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{img.caption}</p>
-                      }
+                        ? <input value={img.caption} placeholder="캡션 (선택)" onChange={e => updateCaption(rowIdx, imgIdx, e.target.value)}
+                            style={{ width:"100%", fontSize:10, border:"0.5px solid #ccc", borderRadius:4, padding:"2px 5px", color:"#5F5E5A", boxSizing:"border-box" }} />
+                        : <p style={{ fontSize:10, color:"#888780", margin:0, textAlign:"center", whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{img.caption}</p>}
                     </div>
                   )}
                 </div>
               ))}
               {isEditMode && (
                 <div>
-                  <input type="file" accept="image/*" multiple ref={el => fileRefs.current[rowIdx] = el}
-                    style={{ display:"none" }} onChange={e => handleFileChange(e, rowIdx)} />
+                  <input type="file" accept="image/*" multiple ref={el => fileRefs.current[rowIdx] = el} style={{ display:"none" }} onChange={e => handleFileChange(e, rowIdx)} />
                   <div onClick={() => !uploading[rowIdx] && fileRefs.current[rowIdx]?.click()}
-                    style={{ width:110, height:82, borderRadius:8, border:"1.5px dashed #ccc",
-                      background:"#fafafa", display:"flex", flexDirection:"column",
-                      alignItems:"center", justifyContent:"center", gap:4,
-                      cursor: uploading[rowIdx] ? "wait" : "pointer" }}>
+                    style={{ width:110, height:82, borderRadius:8, border:"1.5px dashed #ccc", background:"#fafafa", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", gap:4, cursor: uploading[rowIdx] ? "wait" : "pointer" }}>
                     {uploading[rowIdx]
                       ? <span style={{ fontSize:11, color:"#888780" }}>업로드 중...</span>
                       : <>
-                          <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
-                            <circle cx="9" cy="9" r="8" stroke="#ccc" strokeWidth="1.2"/>
-                            <path d="M9 5v8M5 9h8" stroke="#888780" strokeWidth="1.5" strokeLinecap="round"/>
-                          </svg>
+                          <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><circle cx="9" cy="9" r="8" stroke="#ccc" strokeWidth="1.2"/><path d="M9 5v8M5 9h8" stroke="#888780" strokeWidth="1.5" strokeLinecap="round"/></svg>
                           <span style={{ fontSize:10, color:"#888780", textAlign:"center", lineHeight:1.3 }}>이미지 추가</span>
-                        </>
-                    }
+                        </>}
                   </div>
                 </div>
               )}
@@ -404,13 +363,7 @@ function ImageExamplesCard({ rows, isEditMode, onChange }) {
           </div>
         );
       })}
-      {isEditMode && (
-        <button onClick={addRow}
-          style={{ marginTop:4, width:"100%", fontSize:12, color:"#993556",
-            background:"none", border:"0.5px dashed #993556", borderRadius:6, padding:"5px 0", cursor:"pointer" }}>
-          + 행 추가
-        </button>
-      )}
+      {isEditMode && <button onClick={addRow} style={{ marginTop:4, width:"100%", fontSize:12, color:"#993556", background:"none", border:"0.5px dashed #993556", borderRadius:6, padding:"5px 0", cursor:"pointer" }}>+ 행 추가</button>}
     </div>
   );
 }
@@ -612,7 +565,6 @@ function App() {
       const fbRef = window.__firebaseRef;
       const onValue = window.__firebaseOnValue;
       if (!db) return;
-
       const dataRef = fbRef(db, "guide");
       onValue(dataRef, (snapshot) => {
         const val = snapshot.val();
@@ -626,7 +578,6 @@ function App() {
         }
       }, () => setSyncStatus("error"));
     };
-
     if (window.__firebaseReady) init();
     else window.addEventListener("firebase-ready", init);
     return () => window.removeEventListener("firebase-ready", init);
@@ -706,7 +657,6 @@ function App() {
           </div>
         </div>
       )}
-
       <div style={{padding:"18px 0 14px",borderBottom:"0.5px solid rgba(0,0,0,0.08)",marginBottom:14,display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:8}}>
         <div>
           <h2 style={{margin:0,fontSize:18,fontWeight:600,color:"#2C2C2A"}}>KC 인증 검수 가이드</h2>
@@ -730,13 +680,11 @@ function App() {
           <button onClick={reset} style={{padding:"6px 10px",borderRadius:6,fontSize:12,cursor:"pointer",background:"transparent",color:"#A32D2D",border:"0.5px solid rgba(162,45,45,0.3)"}}>초기화</button>
         </div>
       </div>
-
       {isEditMode&&(
         <div style={{background:"#EEEDFE",borderRadius:8,padding:"8px 14px",marginBottom:12,fontSize:12,color:"#534AB7",border:"0.5px solid #AFA9EC"}}>
           ✏ 편집 모드 — 텍스트 클릭하여 수정 · Enter 저장 · <strong>Shift+Enter 줄바꿈</strong> · <strong>⠿ 드래그하여 순서 변경</strong>
         </div>
       )}
-
       <div style={{display:"flex",flexWrap:"wrap",gap:5,marginBottom:20}}>
         {data.sections.map(s=>(
           <button key={s.id} onClick={()=>setActive(s.id)} style={{padding:"6px 13px",borderRadius:20,fontSize:13,cursor:"pointer",border:active===s.id?`1.5px solid ${s.color}`:"0.5px solid rgba(0,0,0,0.15)",background:active===s.id?s.bg:"transparent",color:active===s.id?s.color:"#5F5E5A",fontWeight:active===s.id?600:400}}>
@@ -745,7 +693,6 @@ function App() {
         ))}
         {isEditMode&&<button onClick={addSection} style={{padding:"6px 13px",borderRadius:20,fontSize:13,cursor:"pointer",background:"none",color:"#6C63FF",border:"0.5px dashed #6C63FF"}}>+ 섹션 추가</button>}
       </div>
-
       {cs&&(
         <div>
           <div style={{borderTop:`3px solid ${cs.color}`,paddingTop:16,marginBottom:16,display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:8}}>
@@ -760,7 +707,6 @@ function App() {
               <h3 style={{margin:0,fontSize:16,fontWeight:600,color:cs.color}}>{cs.icon} {cs.label}</h3>
             )}
           </div>
-
           {cs.cards.map((card,idx)=>(
             <div key={card.id} style={{borderTop:isEditMode&&overCardIdx===idx&&dragCardIdx!==idx?`2px solid ${cs.color}`:"2px solid transparent",borderRadius:2}}>
               <CardBlock card={card} sectionColor={cs.color} isEditMode={isEditMode}
@@ -772,7 +718,6 @@ function App() {
                 isOver={isEditMode&&overCardIdx===idx&&dragCardIdx!==idx}/>
             </div>
           ))}
-
           {isEditMode&&(
             <div style={{marginTop:12,padding:"12px 14px",background:"#F9F8FF",border:"0.5px dashed #AFA9EC",borderRadius:10}}>
               <p style={{margin:"0 0 8px",fontSize:11,color:"#888780",fontWeight:600,textTransform:"uppercase",letterSpacing:"0.05em"}}>카드 추가</p>
