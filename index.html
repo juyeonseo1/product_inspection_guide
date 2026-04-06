@@ -46,6 +46,8 @@
 const { useState, useEffect, useRef, useCallback } = React;
 
 const EDIT_PASSWORD = "enhans2026";
+const CLOUDINARY_CLOUD = "dutygxt7q";
+const CLOUDINARY_PRESET = "bitqqtez";
 
 const STATUS = {
   pass:  { label: "PASS",    bg: "#EAF3DE", color: "#3B6D11", border: "#97C459", dot: "#639922" },
@@ -158,6 +160,10 @@ const defaultData = {
         { status: "fail", text: "이미지 분할컷 사용" },
         { status: "fail", text: "GIF 사용" },
       ]},
+      { id: "c3", title: "이미지 예시", type: "imageExamples", rows: [
+        { status: "pass", label: "PASS 예시", desc: "", images: [] },
+        { status: "fail", label: "FAIL 예시", desc: "", images: [] },
+      ]},
     ]},
     { id: "category", label: "카테고리 오등록", icon: "📂", color: "#5F5E5A", bg: "#F1EFE8", cards: [
       { id: "c1", title: "판단 기준", type: "rules", rules: [
@@ -245,6 +251,169 @@ function useDragList(items, onChange) {
 const DropLine = ({ visible, color="#6C63FF" }) => (
   <div style={{ height:2, borderRadius:2, background:visible?color:"transparent", margin:"1px 0", transition:"background 0.1s" }} />
 );
+
+async function uploadToCloudinary(file) {
+  const fd = new FormData();
+  fd.append("file", file);
+  fd.append("upload_preset", CLOUDINARY_PRESET);
+  const res = await fetch(`https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD}/image/upload`, {
+    method: "POST",
+    body: fd,
+  });
+  if (!res.ok) throw new Error("업로드 실패");
+  const data = await res.json();
+  return data.secure_url;
+}
+
+function ImageExamplesCard({ rows, isEditMode, onChange }) {
+  const [uploading, setUploading] = useState({});
+  const [lightbox, setLightbox] = useState(null);
+  const fileRefs = useRef({});
+
+  const updateRow = (rowIdx, patch) => {
+    const next = rows.map((r, i) => i === rowIdx ? { ...r, ...patch } : r);
+    onChange(next);
+  };
+
+  const handleFileChange = async (e, rowIdx) => {
+    const files = Array.from(e.target.files);
+    if (!files.length) return;
+    setUploading(u => ({ ...u, [rowIdx]: true }));
+    try {
+      const urls = await Promise.all(files.map(uploadToCloudinary));
+      const newImgs = urls.map(url => ({ url, caption: "" }));
+      updateRow(rowIdx, { images: [...(rows[rowIdx].images || []), ...newImgs] });
+    } catch(err) {
+      alert("이미지 업로드 중 오류가 발생했습니다.");
+    }
+    setUploading(u => ({ ...u, [rowIdx]: false }));
+    e.target.value = "";
+  };
+
+  const updateCaption = (rowIdx, imgIdx, caption) => {
+    const imgs = rows[rowIdx].images.map((img, i) => i === imgIdx ? { ...img, caption } : img);
+    updateRow(rowIdx, { images: imgs });
+  };
+
+  const deleteImage = (rowIdx, imgIdx) => {
+    const imgs = rows[rowIdx].images.filter((_, i) => i !== imgIdx);
+    updateRow(rowIdx, { images: imgs });
+  };
+
+  const addRow = () => {
+    onChange([...rows, { status: "check", label: "새 행", desc: "", images: [] }]);
+  };
+
+  const deleteRow = (rowIdx) => {
+    onChange(rows.filter((_, i) => i !== rowIdx));
+  };
+
+  return (
+    <div>
+      {lightbox && (
+        <div onClick={() => setLightbox(null)}
+          style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.75)", zIndex:9999,
+            display:"flex", alignItems:"center", justifyContent:"center", cursor:"zoom-out" }}>
+          <div style={{ maxWidth:"90vw", maxHeight:"90vh", display:"flex", flexDirection:"column", alignItems:"center", gap:10 }}>
+            <img src={lightbox.url} style={{ maxWidth:"100%", maxHeight:"80vh", borderRadius:8, objectFit:"contain" }} />
+            {lightbox.caption && <p style={{ color:"#fff", fontSize:13, margin:0 }}>{lightbox.caption}</p>}
+          </div>
+        </div>
+      )}
+
+      {rows.map((row, rowIdx) => {
+        const s = STATUS[row.status] || STATUS.info;
+        return (
+          <div key={rowIdx} style={{ marginBottom:18 }}>
+            {rowIdx > 0 && <div style={{ borderTop:"0.5px solid rgba(0,0,0,0.06)", marginBottom:14 }} />}
+            <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:8, flexWrap:"wrap" }}>
+              {isEditMode ? (
+                <select value={row.status}
+                  onChange={e => updateRow(rowIdx, { status: e.target.value })}
+                  style={{ fontSize:11, border:"0.5px solid #ccc", borderRadius:12, padding:"2px 6px",
+                    background:s.bg, color:s.color, cursor:"pointer" }}>
+                  {Object.entries(STATUS).map(([k,v]) => React.createElement('option',{key:k,value:k},v.label))}
+                </select>
+              ) : <Badge status={row.status} />}
+              <span style={{ fontSize:12, color:"#5F5E5A", flex:1 }}>
+                {isEditMode
+                  ? <Editable value={row.desc} onChange={v => updateRow(rowIdx, { desc: v })}
+                      style={{ fontSize:12, color:"#5F5E5A" }} />
+                  : row.desc && renderLines(row.desc)
+                }
+              </span>
+              {isEditMode && (
+                <button onClick={() => deleteRow(rowIdx)}
+                  style={{ background:"none", border:"none", color:"#A32D2D", cursor:"pointer", fontSize:13, padding:"0 4px" }}>✕</button>
+              )}
+            </div>
+            <div style={{ display:"flex", gap:8, flexWrap:"wrap", alignItems:"flex-start", paddingLeft:4 }}>
+              {(row.images || []).map((img, imgIdx) => (
+                <div key={imgIdx} style={{ position:"relative", flexShrink:0 }}>
+                  <div style={{ width:110, height:82, borderRadius:8, overflow:"hidden",
+                    border:`1.5px solid ${s.border}`, cursor:"zoom-in", background:"#f0f0f0" }}
+                    onClick={() => !isEditMode && setLightbox({ url: img.url, caption: img.caption })}>
+                    <img src={img.url} style={{ width:"100%", height:"100%", objectFit:"cover" }} />
+                  </div>
+                  {isEditMode && (
+                    <button onClick={() => deleteImage(rowIdx, imgIdx)}
+                      style={{ position:"absolute", top:-6, right:-6, width:18, height:18, borderRadius:"50%",
+                        background:"#A32D2D", color:"#fff", border:"none", cursor:"pointer",
+                        fontSize:11, display:"flex", alignItems:"center", justifyContent:"center", lineHeight:1 }}>✕</button>
+                  )}
+                  {(isEditMode || img.caption) && (
+                    <div style={{ marginTop:3, width:110 }}>
+                      {isEditMode
+                        ? <input value={img.caption} placeholder="캡션 (선택)"
+                            onChange={e => updateCaption(rowIdx, imgIdx, e.target.value)}
+                            style={{ width:"100%", fontSize:10, border:"0.5px solid #ccc", borderRadius:4,
+                              padding:"2px 5px", color:"#5F5E5A", boxSizing:"border-box" }} />
+                        : <p style={{ fontSize:10, color:"#888780", margin:0, textAlign:"center",
+                            whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{img.caption}</p>
+                      }
+                    </div>
+                  )}
+                </div>
+              ))}
+              {isEditMode && (
+                <div>
+                  <input type="file" accept="image/*" multiple ref={el => fileRefs.current[rowIdx] = el}
+                    style={{ display:"none" }} onChange={e => handleFileChange(e, rowIdx)} />
+                  <div onClick={() => !uploading[rowIdx] && fileRefs.current[rowIdx]?.click()}
+                    style={{ width:110, height:82, borderRadius:8, border:"1.5px dashed #ccc",
+                      background:"#fafafa", display:"flex", flexDirection:"column",
+                      alignItems:"center", justifyContent:"center", gap:4,
+                      cursor: uploading[rowIdx] ? "wait" : "pointer" }}>
+                    {uploading[rowIdx]
+                      ? <span style={{ fontSize:11, color:"#888780" }}>업로드 중...</span>
+                      : <>
+                          <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+                            <circle cx="9" cy="9" r="8" stroke="#ccc" strokeWidth="1.2"/>
+                            <path d="M9 5v8M5 9h8" stroke="#888780" strokeWidth="1.5" strokeLinecap="round"/>
+                          </svg>
+                          <span style={{ fontSize:10, color:"#888780", textAlign:"center", lineHeight:1.3 }}>이미지 추가</span>
+                        </>
+                    }
+                  </div>
+                </div>
+              )}
+            </div>
+            {!isEditMode && (!row.images || row.images.length === 0) && (
+              <p style={{ fontSize:12, color:"#bbb", margin:"4px 0 0 4px", fontStyle:"italic" }}>등록된 예시 이미지 없음</p>
+            )}
+          </div>
+        );
+      })}
+      {isEditMode && (
+        <button onClick={addRow}
+          style={{ marginTop:4, width:"100%", fontSize:12, color:"#993556",
+            background:"none", border:"0.5px dashed #993556", borderRadius:6, padding:"5px 0", cursor:"pointer" }}>
+          + 행 추가
+        </button>
+      )}
+    </div>
+  );
+}
 
 function RulesCard({ rules, isEditMode, onChange }) {
   const { dragIdx, overIdx, onDragStart, onDragOver, onDrop, onDragEnd } = useDragList(rules, onChange);
@@ -374,7 +543,7 @@ function LinksCard({ links, isEditMode, onChange }) {
 
 function CardBlock({ card, sectionColor, isEditMode, onUpdate, onDelete, onDragStart, onDragOver, onDrop, isOver }) {
   const upd=p=>onUpdate({...card,...p});
-  const typeLabel={rules:"판정기준",examples:"예시",links:"링크",text:"텍스트",grades:"등급표"};
+  const typeLabel={rules:"판정기준",examples:"예시",links:"링크",text:"텍스트",grades:"등급표",imageExamples:"이미지예시"};
   return (
     <div draggable={isEditMode} onDragStart={onDragStart} onDragOver={e=>{e.preventDefault();onDragOver();}} onDrop={onDrop}
       style={{background:"#fff",border:`0.5px solid ${isOver?"#6C63FF":"rgba(0,0,0,0.09)"}`,borderLeft:`3px solid ${sectionColor}`,borderRadius:10,padding:"14px 16px",marginBottom:12,position:"relative",cursor:isEditMode?"grab":"default",boxShadow:isOver?`0 0 0 2px ${sectionColor}33`:"none"}}>
@@ -392,6 +561,7 @@ function CardBlock({ card, sectionColor, isEditMode, onUpdate, onDelete, onDragS
       {card.type==="examples"&&<ExamplesCard examples={card.examples||[]} isEditMode={isEditMode} onChange={examples=>upd({examples})}/>}
       {card.type==="links"&&<LinksCard links={card.links||[]} isEditMode={isEditMode} onChange={links=>upd({links})}/>}
       {card.type==="grades"&&<GradesCard grades={card.grades||[]} isEditMode={isEditMode} onChange={grades=>upd({grades})}/>}
+      {card.type==="imageExamples"&&<ImageExamplesCard rows={card.rows||[]} isEditMode={isEditMode} onChange={rows=>upd({rows})}/>}
       {card.type==="text"&&(
         <p style={{fontSize:13.5,color:"#5F5E5A",margin:0,lineHeight:1.7,whiteSpace:"pre-wrap"}}>
           {isEditMode?<Editable value={card.text} onChange={v=>upd({text:v})} style={{fontSize:13.5,display:"block",width:"100%"}}/>:renderLines(card.text)}
@@ -408,6 +578,7 @@ function AddCardPanel({ sectionColor, onAdd }) {
     {type:"links",label:"링크",desc:"외부 링크",init:{links:[{label:"링크명",url:"https://"}]}},
     {type:"text",label:"텍스트",desc:"일반 설명",init:{text:"내용을 입력하세요."}},
     {type:"grades",label:"등급표",desc:"등급별 색상 표",init:{grades:[{grade:"등급",desc:"설명",status:"check"}]}},
+    {type:"imageExamples",label:"이미지 예시",desc:"PASS/FAIL 이미지",init:{rows:[{status:"pass",label:"PASS 예시",desc:"",images:[]},{status:"fail",label:"FAIL 예시",desc:"",images:[]}]}},
   ];
   return (
     <div style={{display:"flex",flexWrap:"wrap",gap:6}}>
@@ -426,7 +597,7 @@ function App() {
   const [data, setData] = useState(defaultData);
   const [active, setActive] = useState(defaultData.sections[0]?.id);
   const [isEditMode, setIsEditMode] = useState(false);
-  const [syncStatus, setSyncStatus] = useState("connecting"); // connecting | synced | saving | error
+  const [syncStatus, setSyncStatus] = useState("connecting");
   const [showPwModal, setShowPwModal] = useState(false);
   const [pwInput, setPwInput] = useState("");
   const [pwError, setPwError] = useState(false);
@@ -435,7 +606,6 @@ function App() {
   const isRemoteUpdate = useRef(false);
   const saveTimer = useRef(null);
 
-  // Firebase 연동
   useEffect(() => {
     const init = () => {
       const db = window.__firebaseDb;
@@ -443,7 +613,7 @@ function App() {
       const onValue = window.__firebaseOnValue;
       if (!db) return;
 
-      const dataRef = fbRef(db, "guide");
+      const dataRef = fbRef(db, "guide_v2");
       onValue(dataRef, (snapshot) => {
         const val = snapshot.val();
         if (val) {
@@ -462,7 +632,6 @@ function App() {
     return () => window.removeEventListener("firebase-ready", init);
   }, []);
 
-  // 데이터 변경 시 Firebase에 저장 (편집 모드일 때만)
   const saveToFirebase = useCallback((newData) => {
     if (!window.__firebaseDb || !isEditMode) return;
     if (isRemoteUpdate.current) { isRemoteUpdate.current = false; return; }
@@ -472,7 +641,7 @@ function App() {
       const db = window.__firebaseDb;
       const fbRef = window.__firebaseRef;
       const set = window.__firebaseSet;
-      set(fbRef(db, "guide"), newData)
+      set(fbRef(db, "guide_v2"), newData)
         .then(() => setSyncStatus("synced"))
         .catch(() => setSyncStatus("error"));
     }, 800);
