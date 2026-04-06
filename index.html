@@ -613,7 +613,7 @@ function App() {
       const onValue = window.__firebaseOnValue;
       if (!db) return;
 
-      const dataRef = fbRef(db, "guide_v2");
+      const dataRef = fbRef(db, "guide");
       onValue(dataRef, (snapshot) => {
         const val = snapshot.val();
         if (val) {
@@ -641,7 +641,7 @@ function App() {
       const db = window.__firebaseDb;
       const fbRef = window.__firebaseRef;
       const set = window.__firebaseSet;
-      set(fbRef(db, "guide_v2"), newData)
+      set(fbRef(db, "guide"), newData)
         .then(() => setSyncStatus("synced"))
         .catch(() => setSyncStatus("error"));
     }, 800);
